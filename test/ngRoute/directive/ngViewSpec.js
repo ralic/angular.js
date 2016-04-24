@@ -120,6 +120,47 @@ describe('ngView', function() {
   });
 
 
+  it('should reference resolved locals in scope', function() {
+    module(function($routeProvider) {
+      $routeProvider.when('/foo', {
+        resolve: {
+          name: function() {
+            return 'shahar';
+          }
+        },
+        template: '<div>{{$resolve.name}}</div>'
+      });
+    });
+
+    inject(function($location, $rootScope) {
+      $location.path('/foo');
+      $rootScope.$digest();
+      expect(element.text()).toEqual('shahar');
+    });
+  });
+
+
+  it('should allow to provide an alias for resolved locals using resolveAs', function() {
+    module(function($routeProvider) {
+      $routeProvider.when('/foo', {
+        resolveAs: 'myResolve',
+        resolve: {
+          name: function() {
+            return 'shahar';
+          }
+        },
+        template: '<div>{{myResolve.name}}</div>'
+      });
+    });
+
+    inject(function($location, $rootScope) {
+      $location.path('/foo');
+      $rootScope.$digest();
+      expect(element.text()).toEqual('shahar');
+    });
+  });
+
+
   it('should load content via xhr when route changes', function() {
     module(function($routeProvider) {
       $routeProvider.when('/foo', {templateUrl: 'myUrl1'});
@@ -896,7 +937,7 @@ describe('ngView animations', function() {
 
     function spyOnAnimateEnter() {
       return function($animate) {
-        spyOn($animate, 'enter').andCallThrough();
+        spyOn($animate, 'enter').and.callThrough();
       };
     }
 

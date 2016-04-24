@@ -1,6 +1,6 @@
 'use strict';
 
-/* globals getInputCompileHelper: false */
+/* globals generateInputCompilerHelper: false */
 
 describe('ngModel', function() {
 
@@ -117,8 +117,8 @@ describe('ngModel', function() {
         expect(ctrl.$invalid).toBe(true);
 
         ctrl.$setValidity('third', undefined);
-        expect(ctrl.$valid).toBe(undefined);
-        expect(ctrl.$invalid).toBe(undefined);
+        expect(ctrl.$valid).toBeUndefined();
+        expect(ctrl.$invalid).toBeUndefined();
 
         ctrl.$setValidity('third', null);
         expect(ctrl.$valid).toBe(false);
@@ -220,7 +220,7 @@ describe('ngModel', function() {
         ctrl.$viewChangeListeners.push(spy);
         ctrl.$setViewValue('val');
         expect(spy).toHaveBeenCalledOnce();
-        spy.reset();
+        spy.calls.reset();
 
         // invalid
         ctrl.$parsers.push(function() {return undefined;});
@@ -270,7 +270,7 @@ describe('ngModel', function() {
         // further digests
         scope.$apply('value = "aaa"');
         expect(ctrl.$viewValue).toBe('aaa');
-        ctrl.$render.reset();
+        ctrl.$render.calls.reset();
 
         ctrl.$setViewValue('cccc');
         expect(ctrl.$modelValue).toBeUndefined();
@@ -286,7 +286,7 @@ describe('ngModel', function() {
         expect(ctrl.$dirty).toBe(true);
         expect(parentFormCtrl.$setDirty).toHaveBeenCalledOnce();
 
-        parentFormCtrl.$setDirty.reset();
+        parentFormCtrl.$setDirty.calls.reset();
         ctrl.$setViewValue('');
         expect(ctrl.$pristine).toBe(false);
         expect(ctrl.$dirty).toBe(true);
@@ -474,7 +474,7 @@ describe('ngModel', function() {
 
         scope.$apply('value = 3');
         expect(ctrl.$render).toHaveBeenCalledOnce();
-        ctrl.$render.reset();
+        ctrl.$render.calls.reset();
 
         ctrl.$formatters.push(function() {return 3;});
         scope.$apply('value = 5');
@@ -756,7 +756,7 @@ describe('ngModel', function() {
         it('should always perform validations using the parsed model value', function() {
           var captures;
           ctrl.$validators.raw = function() {
-            captures = arguments;
+            captures = Array.prototype.slice.call(arguments);
             return captures[0];
           };
 
@@ -773,7 +773,7 @@ describe('ngModel', function() {
         it('should always perform validations using the formatted view value', function() {
           var captures;
           ctrl.$validators.raw = function() {
-            captures = arguments;
+            captures = Array.prototype.slice.call(arguments);
             return captures[0];
           };
 
@@ -906,7 +906,7 @@ describe('ngModel', function() {
 
         expect(function() {
           scope.$apply('value = "123"');
-        }).toThrowMinErr("ngModel", "$asyncValidators",
+        }).toThrowMinErr("ngModel", "nopromise",
           "Expected asynchronous validator to return a promise but got 'true' instead.");
       }));
 
@@ -1001,15 +1001,15 @@ describe('ngModel', function() {
 
         scope.$apply('value = "123"');
         expect(ctrl.$pending).toEqual({async: true});
-        expect(ctrl.$valid).toBe(undefined);
-        expect(ctrl.$invalid).toBe(undefined);
+        expect(ctrl.$valid).toBeUndefined();
+        expect(ctrl.$invalid).toBeUndefined();
         expect(defers.length).toBe(1);
         expect(isObject(ctrl.$pending)).toBe(true);
 
         scope.$apply('value = "456"');
         expect(ctrl.$pending).toEqual({async: true});
-        expect(ctrl.$valid).toBe(undefined);
-        expect(ctrl.$invalid).toBe(undefined);
+        expect(ctrl.$valid).toBeUndefined();
+        expect(ctrl.$invalid).toBeUndefined();
         expect(defers.length).toBe(2);
         expect(isObject(ctrl.$pending)).toBe(true);
 
@@ -1034,8 +1034,8 @@ describe('ngModel', function() {
         };
 
         ctrl.$setViewValue('x..y..z');
-        expect(ctrl.$valid).toBe(undefined);
-        expect(ctrl.$invalid).toBe(undefined);
+        expect(ctrl.$valid).toBeUndefined();
+        expect(ctrl.$invalid).toBeUndefined();
 
         failParser = true;
 
@@ -1145,8 +1145,8 @@ describe('ngModel', function() {
         $rootScope.$digest();
 
         expect(formCtrl.$pending.usernameAvailability).toBeTruthy();
-        expect(usernameCtrl.$invalid).toBe(undefined);
-        expect(formCtrl.$invalid).toBe(undefined);
+        expect(usernameCtrl.$invalid).toBeUndefined();
+        expect(formCtrl.$invalid).toBeUndefined();
 
         usernameDefer.resolve();
         $rootScope.$digest();
@@ -1182,46 +1182,6 @@ describe('ngModel', function() {
       }));
 
 
-      it('should minimize janky setting of classes during $validate() and ngModelWatch', inject(function($animate, $compile, $rootScope) {
-        var addClass = $animate.addClass;
-        var removeClass = $animate.removeClass;
-        var addClassCallCount = 0;
-        var removeClassCallCount = 0;
-        var input;
-        $animate.addClass = function(element, className) {
-          if (input && element[0] === input[0]) ++addClassCallCount;
-          return addClass.call($animate, element, className);
-        };
-
-        $animate.removeClass = function(element, className) {
-          if (input && element[0] === input[0]) ++removeClassCallCount;
-          return removeClass.call($animate, element, className);
-        };
-
-        dealoc(element);
-
-        $rootScope.value = "123456789";
-        element = $compile(
-          '<form name="form">' +
-              '<input type="text" ng-model="value" name="alias" ng-maxlength="10">' +
-          '</form>'
-        )($rootScope);
-
-        var form = $rootScope.form;
-        input = element.children().eq(0);
-
-        $rootScope.$digest();
-
-        expect(input).toBeValid();
-        expect(input).not.toHaveClass('ng-invalid-maxlength');
-        expect(input).toHaveClass('ng-valid-maxlength');
-        expect(addClassCallCount).toBe(1);
-        expect(removeClassCallCount).toBe(0);
-
-        dealoc(element);
-      }));
-
-
       it('should always use the most recent $viewValue for validation', function() {
         ctrl.$parsers.push(function(value) {
           if (value && value.substr(-1) === 'b') {
@@ -1237,12 +1197,12 @@ describe('ngModel', function() {
           return true;
         };
 
-        spyOn(ctrl.$validators, 'mock').andCallThrough();
+        spyOn(ctrl.$validators, 'mock').and.callThrough();
 
         ctrl.$setViewValue('ab');
 
         expect(ctrl.$validators.mock).toHaveBeenCalledWith('a', 'a');
-        expect(ctrl.$validators.mock.calls.length).toEqual(2);
+        expect(ctrl.$validators.mock).toHaveBeenCalledTimes(2);
       });
 
 
@@ -1259,17 +1219,17 @@ describe('ngModel', function() {
           return true;
         };
 
-        spyOn(ctrl.$validators, 'mock').andCallThrough();
+        spyOn(ctrl.$validators, 'mock').and.callThrough();
 
         ctrl.$setViewValue('a');
 
         expect(ctrl.$validators.mock).toHaveBeenCalledWith('a', 'a');
-        expect(ctrl.$validators.mock.calls.length).toEqual(1);
+        expect(ctrl.$validators.mock).toHaveBeenCalledTimes(1);
 
         ctrl.$setViewValue('ab');
 
         expect(ctrl.$validators.mock).toHaveBeenCalledWith('a', 'ab');
-        expect(ctrl.$validators.mock.calls.length).toEqual(2);
+        expect(ctrl.$validators.mock).toHaveBeenCalledTimes(2);
       });
 
       it('should validate correctly when $parser name equals $validator key', function() {
@@ -1367,6 +1327,28 @@ describe('ngModel', function() {
 
   describe('CSS classes', function() {
     var EMAIL_REGEXP = /^[a-z0-9!#$%&'*+\/=?^_`{|}~.-]+@[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
+
+    it('should set ng-empty or ng-not-empty when the view value changes',
+          inject(function($compile, $rootScope, $sniffer) {
+
+      var element = $compile('<input ng-model="value" />')($rootScope);
+
+      $rootScope.$digest();
+      expect(element).toBeEmpty();
+
+      $rootScope.value = 'XXX';
+      $rootScope.$digest();
+      expect(element).toBeNotEmpty();
+
+      element.val('');
+      browserTrigger(element, $sniffer.hasEvent('input') ? 'input' : 'change');
+      expect(element).toBeEmpty();
+
+      element.val('YYY');
+      browserTrigger(element, $sniffer.hasEvent('input') ? 'input' : 'change');
+      expect(element).toBeNotEmpty();
+    }));
+
 
     it('should set css classes (ng-valid, ng-invalid, ng-pristine, ng-dirty, ng-untouched, ng-touched)',
         inject(function($compile, $rootScope, $sniffer) {
@@ -1733,8 +1715,10 @@ describe('ngModel', function() {
       model.$setViewValue('some dirty value');
 
       var animations = findElementAnimations(input, $animate.queue);
-      assertValidAnimation(animations[0], 'removeClass', 'ng-pristine');
-      assertValidAnimation(animations[1], 'addClass', 'ng-dirty');
+      assertValidAnimation(animations[0], 'removeClass', 'ng-empty');
+      assertValidAnimation(animations[1], 'addClass', 'ng-not-empty');
+      assertValidAnimation(animations[2], 'removeClass', 'ng-pristine');
+      assertValidAnimation(animations[3], 'addClass', 'ng-dirty');
     }));
 
 
@@ -1788,16 +1772,9 @@ describe('ngModel', function() {
 
 describe('ngModelOptions attributes', function() {
 
-  var helper, $rootScope, $compile, $timeout, $q;
+  var helper = {}, $rootScope, $compile, $timeout, $q;
 
-  beforeEach(function() {
-    helper = getInputCompileHelper(this);
-  });
-
-  afterEach(function() {
-    helper.dealoc();
-  });
-
+  generateInputCompilerHelper(helper);
 
   beforeEach(inject(function(_$compile_, _$rootScope_, _$timeout_, _$q_) {
     $compile = _$compile_;
@@ -1908,7 +1885,7 @@ describe('ngModelOptions attributes', function() {
         '/>');
 
     browserTrigger(inputElm, 'click');
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
 
     browserTrigger(inputElm, 'blur');
     expect($rootScope.checkbox).toBe(true);
@@ -1996,9 +1973,9 @@ describe('ngModelOptions attributes', function() {
         '/>');
 
     browserTrigger(inputElm, 'click');
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
     $timeout.flush(2000);
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
     $timeout.flush(9000);
     expect($rootScope.checkbox).toBe(true);
   });
@@ -2054,9 +2031,9 @@ describe('ngModelOptions attributes', function() {
         '/>');
 
     helper.changeInputValueTo('a');
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
     $timeout.flush(6000);
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
     $timeout.flush(4000);
     expect($rootScope.name).toEqual('a');
     helper.changeInputValueTo('b');
@@ -2076,9 +2053,9 @@ describe('ngModelOptions attributes', function() {
 
     inputElm[0].checked = false;
     browserTrigger(inputElm, 'click');
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
     $timeout.flush(8000);
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
     $timeout.flush(3000);
     expect($rootScope.checkbox).toBe(true);
     inputElm[0].checked = true;
@@ -2099,9 +2076,9 @@ describe('ngModelOptions attributes', function() {
 
     inputElm[0].checked = false;
     browserTrigger(inputElm, 'click');
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
     $timeout.flush(8000);
-    expect($rootScope.checkbox).toBe(undefined);
+    expect($rootScope.checkbox).toBeUndefined();
     $timeout.flush(3000);
     expect($rootScope.checkbox).toBe(true);
     inputElm[0].checked = true;
@@ -2124,9 +2101,9 @@ describe('ngModelOptions attributes', function() {
     helper.changeGivenInputTo(inputElm, 'a');
     expect($rootScope.name).toEqual(undefined);
     browserTrigger(inputElm, 'blur');
-    expect($rootScope.name).toBe(undefined);
+    expect($rootScope.name).toBeUndefined();
     $timeout.flush(2000);
-    expect($rootScope.name).toBe(undefined);
+    expect($rootScope.name).toBeUndefined();
     $timeout.flush(9000);
     expect($rootScope.name).toEqual('a');
     dealoc(doc);
@@ -2256,7 +2233,7 @@ describe('ngModelOptions attributes', function() {
       '<input type="text" ng-model="name" ' +
         'ng-model-options="{ getterSetter: true }" />');
 
-    var spy = $rootScope.name = jasmine.createSpy('setterSpy').andCallFake(function() {
+    var spy = $rootScope.name = jasmine.createSpy('setterSpy').and.callFake(function() {
       return 'b';
     });
     $rootScope.$apply();
@@ -2307,7 +2284,7 @@ describe('ngModelOptions attributes', function() {
         return this.value;
       }
     };
-    spyOn($rootScope.someService, 'getterSetter').andCallThrough();
+    spyOn($rootScope.someService, 'getterSetter').and.callThrough();
     $rootScope.$apply();
 
     expect(inputElm.val()).toBe('a');

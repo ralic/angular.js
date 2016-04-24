@@ -5,8 +5,9 @@
 
 # Angular Expressions
 
-Angular expressions are JavaScript-like code snippets that are usually placed in bindings such as
-`{{ expression }}`.
+Angular expressions are JavaScript-like code snippets that are mainly placed in
+interpolation bindings such as `<span title="{{ attrBinding }}">{{ textBinding }}</span>`,
+but also used directly in directive attributes such as `ng-click="functionExpression()"`.
 
 For example, these are valid expressions in Angular:
 
@@ -26,6 +27,9 @@ Angular expressions are like JavaScript expressions with the following differenc
   * **Forgiving:** In JavaScript, trying to evaluate undefined properties generates `ReferenceError`
     or `TypeError`. In Angular, expression evaluation is forgiving to `undefined` and `null`.
 
+  * **Filters:** You can use {@link guide/filter filters} within expressions to format data before
+    displaying it.
+
   * **No Control Flow Statements:** You cannot use the following in an Angular expression:
     conditionals, loops, or exceptions.
 
@@ -35,10 +39,12 @@ Angular expressions are like JavaScript expressions with the following differenc
   * **No RegExp Creation With Literal Notation:** You cannot create regular expressions
     in an Angular expression.
 
-  * **No Comma And Void Operators:** You cannot use `,` or `void` in an Angular expression.
+  * **No Object Creation With New Operator:** You cannot use `new` operator in an Angular expression.
 
-  * **Filters:** You can use {@link guide/filter filters} within expressions to format data before
-    displaying it.
+  * **No Bitwise, Comma, And Void Operators:** You cannot use
+  [Bitwise](https://developer.mozilla.org/de/docs/Web/JavaScript/Reference/Operators/Bitwise_Operators),
+  `,` or `void` operators in an Angular expression.
+
 
 If you want to run more complex JavaScript code, you should make it a controller method and call
 the method from your view. If you want to `eval()` an Angular expression yourself, use the
@@ -112,6 +118,9 @@ This restriction is intentional. It prevents accidental access to the global sta
 
 Instead use services like `$window` and `$location` in functions called from expressions. Such services
 provide mockable access to globals.
+
+It is possible to access the context object using the identifier `this` and the locals object using the
+identifier `$locals`.
 
 <example module="expressionExample">
   <file name="index.html">
@@ -280,7 +289,7 @@ result is a non-undefined value (see value stabilization algorithm below).
 </example>
 
 
-### Why this feature
+### Reasons for using one-time binding
 
 The main purpose of one-time binding expression is to provide a way to create a binding
 that gets deregistered and frees up resources once the binding is stabilized.

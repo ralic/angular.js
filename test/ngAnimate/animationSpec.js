@@ -477,16 +477,16 @@ describe('$$animation', function() {
       it('should remove the $destroy event listener when the animation is closed',
         inject(function($$animation, $rootScope) {
 
-        var addListen = spyOn(element, 'on').andCallThrough();
-        var removeListen = spyOn(element, 'off').andCallThrough();
+        var addListen = spyOn(element, 'on').and.callThrough();
+        var removeListen = spyOn(element, 'off').and.callThrough();
         var runner = $$animation(element, 'someEvent');
 
-        var args = addListen.mostRecentCall.args[0];
+        var args = addListen.calls.mostRecent().args[0];
         expect(args).toBe('$destroy');
 
         runner.end();
 
-        args = removeListen.mostRecentCall.args[0];
+        args = removeListen.calls.mostRecent().args[0];
         expect(args).toBe('$destroy');
       }));
 
@@ -513,6 +513,25 @@ describe('$$animation', function() {
         expect(captureLog[1].element).toBe(child);
         expect(captureLog[2].element).toBe(grandchild);
       }));
+
+
+      they('should add the preparation class before the $prop-animation is pushed to the queue',
+        ['enter', 'leave', 'move'], function(animationType) {
+        inject(function($$animation, $rootScope, $animate) {
+          var runner = $$animation(element, animationType);
+          expect(element).toHaveClass('ng-' + animationType + '-prepare');
+        });
+      });
+
+
+      they('should remove the preparation class before the $prop-animation starts',
+        ['enter', 'leave', 'move'], function(animationType) {
+        inject(function($$animation, $rootScope, $$rAF) {
+          var runner = $$animation(element, animationType);
+          $rootScope.$digest();
+          expect(element).not.toHaveClass('ng-' + animationType + '-prepare');
+        });
+      });
     });
 
     describe("grouped", function() {
@@ -836,8 +855,8 @@ describe('$$animation', function() {
       element = jqLite('<div></div>');
       parent = jqLite('<div></div>');
 
-      return function($$AnimateRunner, $q, $rootElement, $$body) {
-        $$body.append($rootElement);
+      return function($$AnimateRunner, $rootElement, $document) {
+        jqLite($document[0].body).append($rootElement);
         $rootElement.append(parent);
 
         mockedDriverFn = function(element, method, options, domOperation) {

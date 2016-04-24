@@ -133,7 +133,7 @@ describe('$interpolate', function() {
         $rootScope.$digest();
         expect($rootScope.$countWatchers()).toBe(0);
         expect(spy).toHaveBeenCalledWith('foo', 'foo', $rootScope);
-        expect(spy.calls.length).toBe(1);
+        expect(spy).toHaveBeenCalledTimes(1);
       })
     );
 
@@ -144,7 +144,7 @@ describe('$interpolate', function() {
         $rootScope.$digest();
         expect($rootScope.$countWatchers()).toBe(0);
         expect(spy).toHaveBeenCalledWith('foo 42', 'foo 42', $rootScope);
-        expect(spy.calls.length).toBe(1);
+        expect(spy).toHaveBeenCalledTimes(1);
       })
     );
   });
@@ -157,6 +157,7 @@ describe('$interpolate', function() {
 
 
     it('should support escaping interpolation signs', inject(function($interpolate) {
+      expect($interpolate('\\{\\{')(obj)).toBe('{{');
       expect($interpolate('{{foo}} \\{\\{bar\\}\\}')(obj)).toBe('Hello {{bar}}');
       expect($interpolate('\\{\\{foo\\}\\} {{bar}}')(obj)).toBe('{{foo}} World');
     }));

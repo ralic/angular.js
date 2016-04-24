@@ -1,6 +1,8 @@
 'use strict';
 
 describe("resource", function() {
+
+describe("basic usage", function() {
   var $resource, CreditCard, callback, $httpBackend, resourceProvider;
 
   beforeEach(module('ngResource'));
@@ -79,10 +81,10 @@ describe("resource", function() {
     });
 
     it('should skip over null/undefined members', function() {
-      expect(lookupDottedPath(data, 'a.b.c')).toBe(undefined);
-      expect(lookupDottedPath(data, 'a.c.c')).toBe(undefined);
-      expect(lookupDottedPath(data, 'a.b.c.d')).toBe(undefined);
-      expect(lookupDottedPath(data, 'NOT_EXIST')).toBe(undefined);
+      expect(lookupDottedPath(data, 'a.b.c')).toBeUndefined();
+      expect(lookupDottedPath(data, 'a.c.c')).toBeUndefined();
+      expect(lookupDottedPath(data, 'a.b.c.d')).toBeUndefined();
+      expect(lookupDottedPath(data, 'NOT_EXIST')).toBeUndefined();
     });
   });
 
@@ -156,7 +158,7 @@ describe("resource", function() {
   });
 
 
-  it('should ignore slashes of undefinend parameters', function() {
+  it('should ignore slashes of undefined parameters', function() {
     var R = $resource('/Path/:a/:b/:c');
 
     $httpBackend.when('GET', '/Path').respond('{}');
@@ -181,7 +183,7 @@ describe("resource", function() {
     R.get({a:6, b:7, c:8});
   });
 
-  it('should not ignore leading slashes of undefinend parameters that have non-slash trailing sequence', function() {
+  it('should not ignore leading slashes of undefined parameters that have non-slash trailing sequence', function() {
     var R = $resource('/Path/:a.foo/:b.bar/:c.baz');
 
     $httpBackend.when('GET', '/Path/.foo/.bar.baz').respond('{}');
@@ -242,7 +244,7 @@ describe("resource", function() {
   });
 
   it('should not encode @ in url params', function() {
-    //encodeURIComponent is too agressive and doesn't follow http://www.ietf.org/rfc/rfc3986.txt
+    //encodeURIComponent is too aggressive and doesn't follow http://www.ietf.org/rfc/rfc3986.txt
     //with regards to the character set (pchar) allowed in path segments
     //so we need this test to make sure that we don't over-encode the params and break stuff like
     //buzz api which uses @self
@@ -331,10 +333,18 @@ describe("resource", function() {
   });
 
 
-  it('should encode & in url params', function() {
-    var R = $resource('/Path/:a');
+  it('should encode & in query params unless in query param value', function() {
+    var R1 = $resource('/Path/:a');
     $httpBackend.expect('GET', '/Path/doh&foo?bar=baz%261').respond('{}');
-    R.get({a: 'doh&foo', bar: 'baz&1'});
+    R1.get({a: 'doh&foo', bar: 'baz&1'});
+
+    var R2 = $resource('/api/myapp/resource?:query');
+    $httpBackend.expect('GET', '/api/myapp/resource?foo&bar').respond('{}');
+    R2.get({query: 'foo&bar'});
+
+    var R3 = $resource('/api/myapp/resource?from=:from');
+    $httpBackend.expect('GET', '/api/myapp/resource?from=bar%20%26%20blanks').respond('{}');
+    R3.get({from: 'bar & blanks'});
   });
 
 
@@ -431,8 +441,8 @@ describe("resource", function() {
     $httpBackend.flush();
     expect(cc).toEqualData({id: 123, name: 'misko'});
     expect(callback).toHaveBeenCalledOnce();
-    expect(callback.mostRecentCall.args[0]).toEqual(cc);
-    expect(callback.mostRecentCall.args[1]()).toEqual({});
+    expect(callback.calls.mostRecent().args[0]).toEqual(cc);
+    expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
   });
 
 
@@ -446,8 +456,8 @@ describe("resource", function() {
 
     $httpBackend.flush();
     expect(cc).toEqualData({id: 123, number: '9876'});
-    expect(callback.mostRecentCall.args[0]).toEqual(cc);
-    expect(callback.mostRecentCall.args[1]()).toEqual({});
+    expect(callback.calls.mostRecent().args[0]).toEqual(cc);
+    expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
   });
 
 
@@ -474,8 +484,8 @@ describe("resource", function() {
     $httpBackend.expect('GET', '/CreditCard/123').respond({id: {key: 123}, number: '9876'});
     cc.$get(callback);
     $httpBackend.flush();
-    expect(callback.mostRecentCall.args[0]).toEqual(cc);
-    expect(callback.mostRecentCall.args[1]()).toEqual({});
+    expect(callback.calls.mostRecent().args[0]).toEqual(cc);
+    expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
     expect(cc.number).toEqual('9876');
   });
 
@@ -500,8 +510,8 @@ describe("resource", function() {
 
     $httpBackend.flush();
     expect(ccs).toEqualData([{id:1}, {id:2}]);
-    expect(callback.mostRecentCall.args[0]).toEqual(ccs);
-    expect(callback.mostRecentCall.args[1]()).toEqual({});
+    expect(callback.calls.mostRecent().args[0]).toEqual(ccs);
+    expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
   });
 
 
@@ -523,17 +533,17 @@ describe("resource", function() {
     expect(callback).not.toHaveBeenCalled();
 
     $httpBackend.flush();
-    expect(callback.mostRecentCall.args[0]).toEqualData({});
-    expect(callback.mostRecentCall.args[1]()).toEqual({});
+    expect(callback.calls.mostRecent().args[0]).toEqualData({});
+    expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
 
-    callback.reset();
+    callback.calls.reset();
     $httpBackend.expect('DELETE', '/CreditCard/333').respond(204, null);
     CreditCard.remove({id:333}, callback);
     expect(callback).not.toHaveBeenCalled();
 
     $httpBackend.flush();
-    expect(callback.mostRecentCall.args[0]).toEqualData({});
-    expect(callback.mostRecentCall.args[1]()).toEqual({});
+    expect(callback.calls.mostRecent().args[0]).toEqualData({});
+    expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
   });
 
 
@@ -581,8 +591,8 @@ describe("resource", function() {
 
     $httpBackend.flush();
     expect(cc).toEqualData({id:123});
-    expect(callback.mostRecentCall.args[0]).toEqual(cc);
-    expect(callback.mostRecentCall.args[1]()).toEqual({header1: 'a'});
+    expect(callback.calls.mostRecent().args[0]).toEqual(cc);
+    expect(callback.calls.mostRecent().args[1]()).toEqual(extend(Object.create(null), {header1: 'a'}));
   });
 
 
@@ -704,7 +714,7 @@ describe("resource", function() {
         $httpBackend.flush();
 
         expect(callback).toHaveBeenCalledOnce();
-        expect(callback.mostRecentCall.args[0]).toBe(cc);
+        expect(callback.calls.mostRecent().args[0]).toBe(cc);
       });
 
 
@@ -715,7 +725,7 @@ describe("resource", function() {
         cc.$promise.then(callback);
         $httpBackend.flush();
 
-        callback.reset();
+        callback.calls.reset();
 
         cc.$promise.then(callback);
         $rootScope.$apply(); //flush async queue
@@ -756,7 +766,7 @@ describe("resource", function() {
         cc.$promise.then(null, callback);
         $httpBackend.flush();
 
-        var response = callback.mostRecentCall.args[0];
+        var response = callback.calls.mostRecent().args[0];
 
         expect(response.data).toEqual('resource not found');
         expect(response.status).toEqual(404);
@@ -814,7 +824,7 @@ describe("resource", function() {
         $httpBackend.flush();
         expect(callback).toHaveBeenCalledOnce();
         expect(cc).toEqualData({id: 123, number: '9876'});
-        callback.reset();
+        callback.calls.reset();
 
         $httpBackend.expect('POST', '/CreditCard').respond({id: 1, number: '9'});
 
@@ -897,7 +907,7 @@ describe("resource", function() {
         $httpBackend.flush();
 
         expect(callback).toHaveBeenCalledOnce();
-        expect(callback.mostRecentCall.args[0]).toBe(ccs);
+        expect(callback.calls.mostRecent().args[0]).toBe(ccs);
       });
 
 
@@ -908,7 +918,7 @@ describe("resource", function() {
         ccs.$promise.then(callback);
         $httpBackend.flush();
 
-        callback.reset();
+        callback.calls.reset();
 
         ccs.$promise.then(callback);
         $rootScope.$apply(); //flush async queue
@@ -935,7 +945,7 @@ describe("resource", function() {
         ccs.$promise.then(null, callback);
         $httpBackend.flush();
 
-        var response = callback.mostRecentCall.args[0];
+        var response = callback.calls.mostRecent().args[0];
 
         expect(response.data).toEqual('resource not found');
         expect(response.status).toEqual(404);
@@ -990,7 +1000,7 @@ describe("resource", function() {
       $httpBackend.flush();
       expect(callback).toHaveBeenCalledOnce();
 
-      var response = callback.mostRecentCall.args[0];
+      var response = callback.calls.mostRecent().args[0];
       expect(response.resource).toBe(ccs);
       expect(response.status).toBe(200);
       expect(response.config).toBeDefined();
@@ -1019,7 +1029,7 @@ describe("resource", function() {
       $httpBackend.flush();
       expect(callback).toHaveBeenCalledOnce();
 
-      var response = callback.mostRecentCall.args[0];
+      var response = callback.calls.mostRecent().args[0];
       expect(response.status).toBe(404);
       expect(response.config).toBeDefined();
     });
@@ -1032,7 +1042,7 @@ describe("resource", function() {
         errorCB;
 
     beforeEach(function() {
-      errorCB = jasmine.createSpy('error').andCallFake(function(response) {
+      errorCB = jasmine.createSpy('error').and.callFake(function(response) {
         expect(response.data).toBe(ERROR_RESPONSE);
         expect(response.status).toBe(ERROR_CODE);
       });
@@ -1200,8 +1210,8 @@ describe("resource", function() {
         $httpBackend.flush();
         expect(user).toEqualData({id: 123, name: 'user1'});
         expect(callback).toHaveBeenCalledOnce();
-        expect(callback.mostRecentCall.args[0]).toEqual(user);
-        expect(callback.mostRecentCall.args[1]()).toEqual({});
+        expect(callback.calls.mostRecent().args[0]).toEqual(user);
+        expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
       });
 
       it('should append when an id is supplied', function() {
@@ -1212,8 +1222,8 @@ describe("resource", function() {
         $httpBackend.flush();
         expect(user).toEqualData({id: 123, name: 'newName'});
         expect(callback).toHaveBeenCalledOnce();
-        expect(callback.mostRecentCall.args[0]).toEqual(user);
-        expect(callback.mostRecentCall.args[1]()).toEqual({});
+        expect(callback.calls.mostRecent().args[0]).toEqual(user);
+        expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
       });
 
       it('should append when an id is supplied and the format is a parameter', function() {
@@ -1224,8 +1234,8 @@ describe("resource", function() {
         $httpBackend.flush();
         expect(user).toEqualData({id: 123, name: 'newName'});
         expect(callback).toHaveBeenCalledOnce();
-        expect(callback.mostRecentCall.args[0]).toEqual(user);
-        expect(callback.mostRecentCall.args[1]()).toEqual({});
+        expect(callback.calls.mostRecent().args[0]).toEqual(user);
+        expect(callback.calls.mostRecent().args[1]()).toEqual(Object.create(null));
       });
     });
 
@@ -1307,8 +1317,8 @@ describe("resource", function() {
   });
 });
 
-describe('resource', function() {
-  var $httpBackend, $resource;
+describe('errors', function() {
+  var $httpBackend, $resource, $q;
 
   beforeEach(module(function($exceptionHandlerProvider) {
     $exceptionHandlerProvider.mode('log');
@@ -1319,6 +1329,7 @@ describe('resource', function() {
   beforeEach(inject(function($injector) {
     $httpBackend = $injector.get('$httpBackend');
     $resource = $injector.get('$resource');
+    $q = $injector.get('$q');
   }));
 
 
@@ -1334,7 +1345,7 @@ describe('resource', function() {
 
     expect(successSpy).not.toHaveBeenCalled();
     expect(failureSpy).toHaveBeenCalled();
-    expect(failureSpy.mostRecentCall.args[0]).toMatch(
+    expect(failureSpy.calls.mostRecent().args[0]).toMatch(
         /^\[\$resource:badcfg\] Error in resource configuration for action `query`\. Expected response to contain an array but got an object \(Request: GET \/Customer\/123\)/
       );
   });
@@ -1351,10 +1362,277 @@ describe('resource', function() {
 
     expect(successSpy).not.toHaveBeenCalled();
     expect(failureSpy).toHaveBeenCalled();
-    expect(failureSpy.mostRecentCall.args[0]).toMatch(
+    expect(failureSpy.calls.mostRecent().args[0]).toMatch(
         /^\[\$resource:badcfg\] Error in resource configuration for action `get`\. Expected response to contain an object but got an array \(Request: GET \/Customer\/123\)/
       );
   });
+});
 
+describe('cancelling requests', function() {
+  var httpSpy;
+  var $httpBackend;
+  var $resource;
+  var $timeout;
 
+  beforeEach(module('ngResource', function($provide) {
+    $provide.decorator('$http', function($delegate) {
+      httpSpy = jasmine.createSpy('$http').and.callFake($delegate);
+      return httpSpy;
+    });
+  }));
+
+  beforeEach(inject(function(_$httpBackend_, _$resource_, _$timeout_) {
+    $httpBackend = _$httpBackend_;
+    $resource = _$resource_;
+    $timeout = _$timeout_;
+  }));
+
+  it('should accept numeric timeouts in actions and pass them to $http', function() {
+    $httpBackend.whenGET('/CreditCard').respond({});
+
+    var CreditCard = $resource('/CreditCard', {}, {
+      get: {
+        method: 'GET',
+        timeout: 10000
+      }
+    });
+
+    CreditCard.get();
+    $httpBackend.flush();
+
+    expect(httpSpy).toHaveBeenCalledOnce();
+    expect(httpSpy.calls.argsFor(0)[0].timeout).toBe(10000);
+  });
+
+  it('should delete non-numeric timeouts in actions and log a $debug message',
+    inject(function($log, $q) {
+      spyOn($log, 'debug');
+      $httpBackend.whenGET('/CreditCard').respond({});
+
+      var CreditCard = $resource('/CreditCard', {}, {
+        get: {
+          method: 'GET',
+          timeout: $q.defer().promise
+        }
+      });
+
+      CreditCard.get();
+      $httpBackend.flush();
+
+      expect(httpSpy).toHaveBeenCalledOnce();
+      expect(httpSpy.calls.argsFor(0)[0].timeout).toBeUndefined();
+      expect($log.debug).toHaveBeenCalledOnceWith('ngResource:\n' +
+          '  Only numeric values are allowed as `timeout`.\n' +
+          '  Promises are not supported in $resource, because the same value would ' +
+          'be used for multiple requests. If you are looking for a way to cancel ' +
+          'requests, you should use the `cancellable` option.');
+    })
+  );
+
+  it('should use `cancellable` value if passed a non-numeric `timeout` in an action',
+    inject(function($log, $q) {
+      spyOn($log, 'debug');
+      $httpBackend.whenGET('/CreditCard').respond({});
+
+      var CreditCard = $resource('/CreditCard', {}, {
+        get: {
+          method: 'GET',
+          timeout: $q.defer().promise,
+          cancellable: true
+        }
+      });
+
+      var creditCard = CreditCard.get();
+      expect(creditCard.$cancelRequest).toBeDefined();
+      expect(httpSpy.calls.argsFor(0)[0].timeout).toEqual(jasmine.any($q));
+      expect(httpSpy.calls.argsFor(0)[0].timeout.then).toBeDefined();
+
+      expect($log.debug).toHaveBeenCalledOnceWith('ngResource:\n' +
+          '  Only numeric values are allowed as `timeout`.\n' +
+          '  Promises are not supported in $resource, because the same value would ' +
+          'be used for multiple requests. If you are looking for a way to cancel ' +
+          'requests, you should use the `cancellable` option.');
+    })
+  );
+
+  it('should not create a `$cancelRequest` method for instance calls', function() {
+    $httpBackend.whenPOST('/CreditCard').respond({});
+
+    var CreditCard = $resource('/CreditCard', {}, {
+      save1: {
+        method: 'POST',
+        cancellable: false
+      },
+      save2: {
+        method: 'POST',
+        cancellable: true
+      }
+    });
+
+    var creditCard = new CreditCard();
+
+    var promise1 = creditCard.$save1();
+    expect(promise1.$cancelRequest).toBeUndefined();
+    expect(creditCard.$cancelRequest).toBeUndefined();
+
+    var promise2 = creditCard.$save2();
+    expect(promise2.$cancelRequest).toBeUndefined();
+    expect(creditCard.$cancelRequest).toBeUndefined();
+
+    $httpBackend.flush();
+    expect(promise1.$cancelRequest).toBeUndefined();
+    expect(promise2.$cancelRequest).toBeUndefined();
+    expect(creditCard.$cancelRequest).toBeUndefined();
+  });
+
+  it('should not create a `$cancelRequest` method for non-cancellable calls', function() {
+    var CreditCard = $resource('/CreditCard', {}, {
+      get: {
+        method: 'GET',
+        cancellable: false
+      }
+    });
+
+    var creditCard = CreditCard.get();
+
+    expect(creditCard.$cancelRequest).toBeUndefined();
+  });
+
+  it('should also take into account `options.cancellable`', function() {
+    var options = {cancellable: true};
+    var CreditCard = $resource('/CreditCard', {}, {
+      get1: {method: 'GET', cancellable: false},
+      get2: {method: 'GET', cancellable: true},
+      get3: {method: 'GET'}
+    }, options);
+
+    var creditCard1 = CreditCard.get1();
+    var creditCard2 = CreditCard.get2();
+    var creditCard3 = CreditCard.get3();
+
+    expect(creditCard1.$cancelRequest).toBeUndefined();
+    expect(creditCard2.$cancelRequest).toBeDefined();
+    expect(creditCard3.$cancelRequest).toBeDefined();
+
+    options = {cancellable: false};
+    CreditCard = $resource('/CreditCard', {}, {
+      get1: {method: 'GET', cancellable: false},
+      get2: {method: 'GET', cancellable: true},
+      get3: {method: 'GET'}
+    }, options);
+
+    creditCard1 = CreditCard.get1();
+    creditCard2 = CreditCard.get2();
+    creditCard3 = CreditCard.get3();
+
+    expect(creditCard1.$cancelRequest).toBeUndefined();
+    expect(creditCard2.$cancelRequest).toBeDefined();
+    expect(creditCard3.$cancelRequest).toBeUndefined();
+  });
+
+  it('should accept numeric timeouts in cancellable actions and cancel the request when timeout occurs', function() {
+    $httpBackend.whenGET('/CreditCard').respond({});
+
+    var CreditCard = $resource('/CreditCard', {}, {
+      get: {
+        method: 'GET',
+        timeout: 10000,
+        cancellable: true
+      }
+    });
+
+    var ccs = CreditCard.get();
+    ccs.$promise.catch(noop);
+    $timeout.flush();
+    expect($httpBackend.flush).toThrow(new Error('No pending request to flush !'));
+
+    CreditCard.get();
+    expect($httpBackend.flush).not.toThrow();
+
+  });
+
+  it('should cancel the request (if cancellable), when calling `$cancelRequest`', function() {
+    $httpBackend.whenGET('/CreditCard').respond({});
+
+    var CreditCard = $resource('/CreditCard', {}, {
+      get: {
+        method: 'GET',
+        cancellable: true
+      }
+    });
+
+    var ccs = CreditCard.get();
+    ccs.$cancelRequest();
+    expect($httpBackend.flush).toThrow(new Error('No pending request to flush !'));
+
+    CreditCard.get();
+    expect($httpBackend.flush).not.toThrow();
+  });
+
+  it('should cancel the request, when calling `$cancelRequest` in cancellable actions with timeout defined', function() {
+    $httpBackend.whenGET('/CreditCard').respond({});
+
+    var CreditCard = $resource('/CreditCard', {}, {
+      get: {
+        method: 'GET',
+        timeout: 10000,
+        cancellable: true
+      }
+    });
+
+    var ccs = CreditCard.get();
+    ccs.$cancelRequest();
+    expect($httpBackend.flush).toThrow(new Error('No pending request to flush !'));
+
+    CreditCard.get();
+    expect($httpBackend.flush).not.toThrow();
+  });
+
+  it('should reset `$cancelRequest` after the response arrives', function() {
+    $httpBackend.whenGET('/CreditCard').respond({});
+
+    var CreditCard = $resource('/CreditCard', {}, {
+      get: {
+        method: 'GET',
+        cancellable: true
+      }
+    });
+
+    var creditCard = CreditCard.get();
+
+    expect(creditCard.$cancelRequest).not.toBe(noop);
+
+    $httpBackend.flush();
+
+    expect(creditCard.$cancelRequest).toBe(noop);
+  });
+});
+
+describe('configuring `cancellable` on the provider', function() {
+  var $resource;
+
+  beforeEach(module('ngResource', function($resourceProvider) {
+    $resourceProvider.defaults.cancellable = true;
+  }));
+
+  beforeEach(inject(function(_$resource_) {
+    $resource = _$resource_;
+  }));
+
+  it('should also take into account `$resourceProvider.defaults.cancellable`', function() {
+    var CreditCard = $resource('/CreditCard', {}, {
+      get1: {method: 'GET', cancellable: false},
+      get2: {method: 'GET', cancellable: true},
+      get3: {method: 'GET'}
+    });
+
+    var creditCard1 = CreditCard.get1();
+    var creditCard2 = CreditCard.get2();
+    var creditCard3 = CreditCard.get3();
+
+    expect(creditCard1.$cancelRequest).toBeUndefined();
+    expect(creditCard2.$cancelRequest).toBeDefined();
+    expect(creditCard3.$cancelRequest).toBeDefined();
+  });
+});
 });

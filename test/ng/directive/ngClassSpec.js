@@ -409,6 +409,22 @@ describe('ngClass', function() {
     expect(e2.hasClass('even')).toBeTruthy();
     expect(e2.hasClass('odd')).toBeFalsy();
   }));
+
+  it('should support mixed array/object variable with a mutating object',
+    inject(function($rootScope, $compile) {
+      element = $compile('<div ng-class="classVar"></div>')($rootScope);
+
+      $rootScope.classVar = [{orange: true}];
+      $rootScope.$digest();
+      expect(element).toHaveClass('orange');
+
+      $rootScope.classVar[0].orange = false;
+      $rootScope.$digest();
+
+      expect(element).not.toHaveClass('orange');
+    })
+  );
+
 });
 
 describe('ngClass animations', function() {
@@ -468,12 +484,12 @@ describe('ngClass animations', function() {
         };
       });
     });
-    inject(function($compile, $rootScope, $browser, $rootElement, $animate, $timeout, $$body) {
+    inject(function($compile, $rootScope, $browser, $rootElement, $animate, $document) {
       $animate.enabled(true);
 
       $rootScope.val = 'crazy';
       element = angular.element('<div ng-class="val"></div>');
-      $$body.append($rootElement);
+      jqLite($document[0].body).append($rootElement);
 
       $compile(element)($rootScope);
 

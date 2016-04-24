@@ -2,15 +2,6 @@
 
 describe('parser', function() {
 
-  beforeEach(function() {
-    /* global getterFnCacheDefault: true */
-    /* global getterFnCacheExpensive: true */
-    // clear caches
-    getterFnCacheDefault = createMap();
-    getterFnCacheExpensive = createMap();
-  });
-
-
   describe('lexer', function() {
     var lex;
 
@@ -102,6 +93,37 @@ describe('parser', function() {
       var noSpaces = lex('foo.bar.baz').map(getText);
 
       expect(spaces).toEqual(noSpaces);
+    });
+
+    it('should use callback functions to know when an identifier is valid', function() {
+      function getText(t) { return t.text; }
+      var isIdentifierStart = jasmine.createSpy('start');
+      var isIdentifierContinue = jasmine.createSpy('continue');
+      isIdentifierStart.and.returnValue(true);
+      var lex = new Lexer({csp: false, isIdentifierStart: isIdentifierStart, isIdentifierContinue: isIdentifierContinue});
+
+      isIdentifierContinue.and.returnValue(true);
+      var tokens = lex.lex('πΣε').map(getText);
+      expect(tokens).toEqual(['πΣε']);
+
+      isIdentifierContinue.and.returnValue(false);
+      tokens = lex.lex('πΣε').map(getText);
+      expect(tokens).toEqual(['π', 'Σ', 'ε']);
+    });
+
+    it('should send the unicode characters and code points', function() {
+      function getText(t) { return t.text; }
+      var isIdentifierStart = jasmine.createSpy('start');
+      var isIdentifierContinue = jasmine.createSpy('continue');
+      isIdentifierStart.and.returnValue(true);
+      isIdentifierContinue.and.returnValue(true);
+      var lex = new Lexer({csp: false, isIdentifierStart: isIdentifierStart, isIdentifierContinue: isIdentifierContinue});
+      var tokens = lex.lex('\uD801\uDC37\uD852\uDF62\uDBFF\uDFFF');
+      expect(isIdentifierStart).toHaveBeenCalledTimes(1);
+      expect(isIdentifierStart.calls.argsFor(0)).toEqual(['\uD801\uDC37', 0x10437]);
+      expect(isIdentifierContinue).toHaveBeenCalledTimes(2);
+      expect(isIdentifierContinue.calls.argsFor(0)).toEqual(['\uD852\uDF62', 0x24B62]);
+      expect(isIdentifierContinue.calls.argsFor(1)).toEqual(['\uDBFF\uDFFF', 0x10FFFF]);
     });
 
     it('should tokenize undefined', function() {
@@ -232,7 +254,7 @@ describe('parser', function() {
       /* global AST: false */
       createAst = function() {
         var lexer = new Lexer({csp: false});
-        var ast = new AST(lexer, {csp: false});
+        var ast = new AST(lexer, {csp: false, literals: {'true': true, 'false': false, 'undefined': undefined, 'null': null}});
         return ast.ast.apply(ast, arguments);
       };
     });
@@ -550,8 +572,23 @@ describe('parser', function() {
     });
 
 
-    it('should not confuse `this`, `undefined`, `true`, `false`, `null` when used as identfiers', function() {
-      forEach(['this', 'undefined', 'true', 'false', 'null'], function(identifier) {
+    it('should understand the `$locals` expression', function() {
+      expect(createAst('$locals')).toEqual(
+        {
+          type: 'Program',
+          body: [
+            {
+              type: 'ExpressionStatement',
+              expression: { type: 'LocalsExpression' }
+            }
+          ]
+        }
+      );
+    });
+
+
+    it('should not confuse `this`, `$locals`, `undefined`, `true`, `false`, `null` when used as identfiers', function() {
+      forEach(['this', '$locals', 'undefined', 'true', 'false', 'null'], function(identifier) {
         expect(createAst('foo.' + identifier)).toEqual(
           {
             type: 'Program',
@@ -1213,6 +1250,7 @@ describe('parser', function() {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Identifier', name: 'foo' },
+                    computed: false,
                     value: { type: 'Identifier', name: 'bar' }
                   }
                 ]
@@ -1234,6 +1272,7 @@ describe('parser', function() {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Identifier', name: 'foo' },
+                    computed: false,
                     value: { type: 'Identifier', name: 'bar' }
                   }
                 ]
@@ -1255,18 +1294,21 @@ describe('parser', function() {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Identifier', name: 'foo' },
+                    computed: false,
                     value: { type: 'Identifier', name: 'bar' }
                   },
                   {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Literal', value: 'man' },
+                    computed: false,
                     value: { type: 'Literal', value: 'shell' }
                   },
                   {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Literal', value: 42 },
+                    computed: false,
                     value: { type: 'Literal', value: 23 }
                   }
                 ]
@@ -1288,18 +1330,21 @@ describe('parser', function() {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Identifier', name: 'foo' },
+                    computed: false,
                     value: { type: 'Identifier', name: 'bar' }
                   },
                   {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Literal', value: 'man' },
+                    computed: false,
                     value: { type: 'Literal', value: 'shell' }
                   },
                   {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Literal', value: 42 },
+                    computed: false,
                     value: { type: 'Literal', value: 23 }
                   }
                 ]
@@ -1310,6 +1355,97 @@ describe('parser', function() {
       );
     });
 
+    it('should understand ES6 object initializer', function() {
+      // Shorthand properties definitions.
+      expect(createAst('{x, y, z}')).toEqual(
+        {
+          type: 'Program',
+          body: [
+            {
+              type: 'ExpressionStatement',
+              expression: {
+                type: 'ObjectExpression',
+                properties: [
+                  {
+                    type: 'Property',
+                    kind: 'init',
+                    key: { type: 'Identifier', name: 'x' },
+                    computed: false,
+                    value: { type: 'Identifier', name: 'x' }
+                  },
+                  {
+                    type: 'Property',
+                    kind: 'init',
+                    key: { type: 'Identifier', name: 'y' },
+                    computed: false,
+                    value: { type: 'Identifier', name: 'y' }
+                  },
+                  {
+                    type: 'Property',
+                    kind: 'init',
+                    key: { type: 'Identifier', name: 'z' },
+                    computed: false,
+                    value: { type: 'Identifier', name: 'z' }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      );
+      expect(function() { createAst('{"foo"}'); }).toThrow();
+
+      // Computed properties
+      expect(createAst('{[x]: x}')).toEqual(
+        {
+          type: 'Program',
+          body: [
+            {
+              type: 'ExpressionStatement',
+              expression: {
+                type: 'ObjectExpression',
+                properties: [
+                  {
+                    type: 'Property',
+                    kind: 'init',
+                    key: { type: 'Identifier', name: 'x' },
+                    computed: true,
+                    value: { type: 'Identifier', name: 'x' }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      );
+      expect(createAst('{[x + 1]: x}')).toEqual(
+        {
+          type: 'Program',
+          body: [
+            {
+              type: 'ExpressionStatement',
+              expression: {
+                type: 'ObjectExpression',
+                properties: [
+                  {
+                    type: 'Property',
+                    kind: 'init',
+                    key: {
+                      type: 'BinaryExpression',
+                      operator: '+',
+                      left: { type: 'Identifier', name: 'x' },
+                      right: { type: 'Literal', value: 1 }
+                    },
+                    computed: true,
+                    value: { type: 'Identifier', name: 'x' }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      );
+    });
 
     it('should understand multiple expressions', function() {
       expect(createAst('foo = bar; man = shell')).toEqual(
@@ -1589,6 +1725,7 @@ describe('parser', function() {
                     type: 'Property',
                     kind: 'init',
                     key: { type: 'Identifier', name: 'foo' },
+                    computed: false,
                     value: {
                       type: 'AssignmentExpression',
                       left: { type: 'Identifier', name: 'bar' },
@@ -1675,6 +1812,18 @@ describe('parser', function() {
     $filterProvider = filterProvider;
   }]));
 
+  forEach([true, false], function(cspEnabled) {
+    beforeEach(module(['$parseProvider', function(parseProvider) {
+      parseProvider.addLiteral('Infinity', Infinity);
+    }]));
+
+    it('should allow extending literals with csp ' + cspEnabled, inject(function($rootScope) {
+      expect($rootScope.$eval("Infinity")).toEqual(Infinity);
+      expect($rootScope.$eval("-Infinity")).toEqual(-Infinity);
+      expect(function() {$rootScope.$eval("Infinity = 1");}).toThrow();
+      expect($rootScope.$eval("Infinity")).toEqual(Infinity);
+    }));
+  });
 
   forEach([true, false], function(cspEnabled) {
     describe('csp: ' + cspEnabled, function() {
@@ -1706,7 +1855,7 @@ describe('parser', function() {
         expect(scope.$eval("+'1'")).toEqual(+'1');
         expect(scope.$eval("-'1'")).toEqual(-'1');
         expect(scope.$eval("+undefined")).toEqual(0);
-        expect(scope.$eval("-undefined")).toEqual(0);
+        expect(scope.$eval("-undefined")).toEqual(-0);
         expect(scope.$eval("+null")).toEqual(+null);
         expect(scope.$eval("-null")).toEqual(-null);
         expect(scope.$eval("+false")).toEqual(+false);
@@ -1721,6 +1870,7 @@ describe('parser', function() {
         expect(scope.$eval("!true")).toBeFalsy();
         expect(scope.$eval("1==1")).toBeTruthy();
         expect(scope.$eval("1==true")).toBeTruthy();
+        expect(scope.$eval('1!=true')).toBeFalsy();
         expect(scope.$eval("1===1")).toBeTruthy();
         expect(scope.$eval("1==='1'")).toBeFalsy();
         expect(scope.$eval("1===true")).toBeFalsy();
@@ -1909,7 +2059,7 @@ describe('parser', function() {
         expect(scope.$eval('a.b.c.d')).toBeUndefined();
         scope.a = undefined;
         expect(scope.$eval('a - b')).toBe(0);
-        expect(scope.$eval('a + b')).toBe(undefined);
+        expect(scope.$eval('a + b')).toBeUndefined();
         scope.a = 0;
         expect(scope.$eval('a - b')).toBe(0);
         expect(scope.$eval('a + b')).toBe(0);
@@ -2041,11 +2191,18 @@ describe('parser', function() {
         expect(scope.$eval("{false:1}")).toEqual({false:1});
         expect(scope.$eval("{'false':1}")).toEqual({false:1});
         expect(scope.$eval("{'':1,}")).toEqual({"":1});
+
+        // ES6 object initializers.
+        expect(scope.$eval('{x, y}', {x: 'foo', y: 'bar'})).toEqual({x: 'foo', y: 'bar'});
+        expect(scope.$eval('{[x]: x}', {x: 'foo'})).toEqual({foo: 'foo'});
+        expect(scope.$eval('{[x + "z"]: x}', {x: 'foo'})).toEqual({fooz: 'foo'});
+        expect(scope.$eval('{x, 1: x, [x = x + 1]: x, 3: x + 1, [x = x + 2]: x, 5: x + 1}', {x: 1}))
+            .toEqual({x: 1, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5});
       });
 
       it('should throw syntax error exception for non constant/identifier JSON keys', function() {
         expect(function() { scope.$eval("{[:0}"); }).toThrowMinErr("$parse", "syntax",
-          "Syntax Error: Token '[' invalid key at column 2 of the expression [{[:0}] starting at [[:0}]");
+          "Syntax Error: Token ':' not a primary expression at column 3 of the expression [{[:0}] starting at [:0}]");
         expect(function() { scope.$eval("{{:0}"); }).toThrowMinErr("$parse", "syntax",
           "Syntax Error: Token '{' invalid key at column 2 of the expression [{{:0}] starting at [{:0}]");
         expect(function() { scope.$eval("{?:0}"); }).toThrowMinErr("$parse", "syntax",
@@ -2195,6 +2352,19 @@ describe('parser', function() {
         expect(scope.$eval('true || false || run()')).toBe(true);
       });
 
+      it('should throw TypeError on using a \'broken\' object as a key to access a property', function() {
+        scope.object = {};
+        forEach([
+          { toString: 2 },
+          { toString: null },
+          { toString: function() { return {}; } }
+        ], function(brokenObject) {
+          scope.brokenObject = brokenObject;
+          expect(function() {
+            scope.$eval('object[brokenObject]');
+          }).toThrow();
+        });
+      });
 
       it('should support method calls on primitive types', function() {
         scope.empty = '';
@@ -2380,6 +2550,71 @@ describe('parser', function() {
               }).toThrowMinErr(
                       '$parse', 'isecwindow', 'Referencing the Window in Angular expressions is disallowed! ' +
                       'Expression: foo.w = 1');
+            }));
+
+            they('should propagate expensive checks when calling $prop',
+                ['foo.w && true',
+                 '$eval("foo.w && true")',
+                 'this["$eval"]("foo.w && true")',
+                 'bar;$eval("foo.w && true")',
+                 '$eval("foo.w && true");bar',
+                 '$eval("foo.w && true", null, false)',
+                 '$eval("foo");$eval("foo.w && true")',
+                 '$eval("$eval(\\"foo.w && true\\")")',
+                 '$eval("foo.e()")',
+                 '$evalAsync("foo.w && true")',
+                 'this["$evalAsync"]("foo.w && true")',
+                 'bar;$evalAsync("foo.w && true")',
+                 '$evalAsync("foo.w && true");bar',
+                 '$evalAsync("foo.w && true", null, false)',
+                 '$evalAsync("foo");$evalAsync("foo.w && true")',
+                 '$evalAsync("$evalAsync(\\"foo.w && true\\")")',
+                 '$evalAsync("foo.e()")',
+                 '$evalAsync("$eval(\\"foo.w && true\\")")',
+                 '$eval("$evalAsync(\\"foo.w && true\\")")',
+                 '$watch("foo.w && true")',
+                 '$watchCollection("foo.w && true", foo.f)',
+                 '$watchGroup(["foo.w && true"])',
+                 '$applyAsync("foo.w && true")'], function(expression) {
+              inject(function($parse, $window) {
+                scope.foo = {
+                    w: $window,
+                    bar: 'bar',
+                    e: function() { scope.$eval("foo.w && true"); },
+                    f: function() {}
+                };
+                expect($parse.$$runningExpensiveChecks()).toEqual(false);
+                expect(function() {
+                  scope.$eval($parse(expression, null, true));
+                  scope.$digest();
+                }).toThrowMinErr(
+                    '$parse', 'isecwindow', 'Referencing the Window in Angular expressions is disallowed! ' +
+                    'Expression: foo.w && true');
+                expect($parse.$$runningExpensiveChecks()).toEqual(false);
+              });
+            });
+
+            they('should restore the state of $$runningExpensiveChecks when the expression $prop throws',
+                ['$eval("foo.t()")',
+                 '$evalAsync("foo.t()", {foo: foo})'], function(expression) {
+              inject(function($parse, $window) {
+                scope.foo = {
+                    t: function() { throw new Error(); }
+                };
+                expect($parse.$$runningExpensiveChecks()).toEqual(false);
+                expect(function() {
+                  scope.$eval($parse(expression, null, true));
+                  scope.$digest();
+                }).toThrow();
+                expect($parse.$$runningExpensiveChecks()).toEqual(false);
+              });
+            });
+
+            it('should handle `inputs` when running with expensive checks', inject(function($parse) {
+              expect(function() {
+                scope.$watch($parse('a + b', null, true), noop);
+                scope.$digest();
+              }).not.toThrow();
             }));
           });
         });
@@ -2692,6 +2927,15 @@ describe('parser', function() {
           });
         });
 
+       it('should prevent the exploit', function() {
+          expect(function() {
+            scope.$eval('(1)[{0: "__proto__", 1: "__proto__", 2: "__proto__", 3: "safe", length: 4, toString: [].pop}].foo = 1');
+          }).toThrow();
+          if (!msie || msie > 10) {
+            expect((1)['__proto__'].foo).toBeUndefined();
+          }
+       });
+
         it('should prevent the exploit', function() {
           expect(function() {
             scope.$eval('' +
@@ -2701,6 +2945,41 @@ describe('parser', function() {
                 '"alert(1)"' +
               ')()' +
               '');
+          }).toThrow();
+        });
+
+        it('should prevent assigning in the context of a constructor', function() {
+          expect(function() {
+            scope.$eval("''.constructor.join");
+          }).not.toThrow();
+          expect(function() {
+            scope.$eval("''.constructor.join = ''.constructor.join");
+          }).toThrow();
+          expect(function() {
+            scope.$eval("''.constructor[0] = ''");
+          }).toThrow();
+          expect(function() {
+            scope.$eval("(0).constructor[0] = ''");
+          }).toThrow();
+          expect(function() {
+            scope.$eval("{}.constructor[0] = ''");
+          }).toThrow();
+          // foo.constructor is the object constructor.
+          expect(function() {
+            scope.$eval("foo.constructor[0] = ''", {foo: {}});
+          }).toThrow();
+          // foo.constructor is not a constructor.
+          expect(function() {
+            scope.$eval("foo.constructor[0] = ''", {foo: {constructor: ''}});
+          }).not.toThrow();
+          expect(function() {
+            scope.$eval("objConstructor = {}.constructor; objConstructor.join = ''");
+          }).toThrow();
+          expect(function() {
+            scope.$eval("'a'.constructor.prototype.charAt=[].join");
+          }).toThrow();
+          expect(function() {
+            scope.$eval("'a'.constructor.prototype.charCodeAt=[].concat");
           }).toThrow();
         });
       });
@@ -2903,6 +3182,25 @@ describe('parser', function() {
           expect(log).toEqual('');
         }));
 
+        it('should work with expensive checks', inject(function($parse, $rootScope, log) {
+          var fn = $parse('::foo', null, true);
+          $rootScope.$watch(fn, function(value, old) { if (value !== old) log(value); });
+
+          $rootScope.$digest();
+          expect($rootScope.$$watchers.length).toBe(1);
+
+          $rootScope.foo = 'bar';
+          $rootScope.$digest();
+          expect($rootScope.$$watchers.length).toBe(0);
+          expect(log).toEqual('bar');
+          log.reset();
+
+          $rootScope.foo = 'man';
+          $rootScope.$digest();
+          expect($rootScope.$$watchers.length).toBe(0);
+          expect(log).toEqual('');
+        }));
+
         it('should have a stable value if at the end of a $digest it has a defined value', inject(function($parse, $rootScope, log) {
           var fn = $parse('::foo');
           $rootScope.$watch(fn, function(value, old) { if (value !== old) log(value); });
@@ -2931,7 +3229,7 @@ describe('parser', function() {
           $rootScope.$digest();
           $rootScope.foo = 'foo';
           $rootScope.$digest();
-          expect(fn()).toEqual(null);
+          expect(fn()).toEqual(undefined);
         }));
 
         describe('literal expressions', function() {
@@ -3127,6 +3425,17 @@ describe('parser', function() {
           expect(called).toBe(true);
         }));
 
+        it('should invoke interceptors when the expression is `undefined`', inject(function($parse) {
+          var called = false;
+          function interceptor(v) {
+            called = true;
+            return v;
+          }
+          scope.$watch($parse(undefined, interceptor));
+          scope.$digest();
+          expect(called).toBe(true);
+        }));
+
         it('should treat filters with constant input as constants', inject(function($parse) {
           var filterCalls = 0;
           $filterProvider.register('foo', valueFn(function(input) {
@@ -3289,16 +3598,16 @@ describe('parser', function() {
           var value = 'foo';
           var spy = jasmine.createSpy();
 
-          spy.andCallFake(function() { return value; });
+          spy.and.callFake(function() { return value; });
           scope.foo = spy;
           scope.$watch("foo() | uppercase");
           scope.$digest();
-          expect(spy.calls.length).toEqual(2);
+          expect(spy).toHaveBeenCalledTimes(2);
           scope.$digest();
-          expect(spy.calls.length).toEqual(3);
+          expect(spy).toHaveBeenCalledTimes(3);
           value = 'bar';
           scope.$digest();
-          expect(spy.calls.length).toEqual(5);
+          expect(spy).toHaveBeenCalledTimes(5);
         }));
 
         it('should invoke all statements in multi-statement expressions', inject(function($parse) {
@@ -3452,6 +3761,7 @@ describe('parser', function() {
           expect($parse('"foo" + "bar"').constant).toBe(true);
           expect($parse('5 != null').constant).toBe(true);
           expect($parse('{standard: 4/3, wide: 16/9}').constant).toBe(true);
+          expect($parse('{[standard]: 4/3, wide: 16/9}').constant).toBe(false);
         }));
 
         it('should not mark any expression involving variables or function calls as constant', inject(function($parse) {
@@ -3533,6 +3843,30 @@ describe('parser', function() {
         it('should allow accessing null/undefined properties on `this`', inject(function($rootScope) {
           $rootScope.null = {a: 42};
           expect($rootScope.$eval('this.null.a')).toBe(42);
+        }));
+
+        it('should allow accessing $locals', inject(function($rootScope) {
+          $rootScope.foo = 'foo';
+          $rootScope.bar = 'bar';
+          $rootScope.$locals = 'foo';
+          var locals = {foo: 42};
+          expect($rootScope.$eval('$locals')).toBeUndefined();
+          expect($rootScope.$eval('$locals.foo')).toBeUndefined();
+          expect($rootScope.$eval('this.$locals')).toBe('foo');
+          expect(function() {
+            $rootScope.$eval('$locals = {}');
+          }).toThrow();
+          expect(function() {
+            $rootScope.$eval('$locals.bar = 23');
+          }).toThrow();
+          expect($rootScope.$eval('$locals', locals)).toBe(locals);
+          expect($rootScope.$eval('$locals.foo', locals)).toBe(42);
+          expect($rootScope.$eval('this.$locals', locals)).toBe('foo');
+          expect(function() {
+            $rootScope.$eval('$locals = {}', locals);
+          }).toThrow();
+          expect($rootScope.$eval('$locals.bar = 23', locals)).toEqual(23);
+          expect(locals.bar).toBe(23);
         }));
       });
     });

@@ -14,6 +14,7 @@ var angularFiles = {
 
     'src/ng/anchorScroll.js',
     'src/ng/animate.js',
+    'src/ng/animateRunner.js',
     'src/ng/animateCss.js',
     'src/ng/browser.js',
     'src/ng/cacheFactory.js',
@@ -33,6 +34,7 @@ var angularFiles = {
     'src/ng/q.js',
     'src/ng/raf.js',
     'src/ng/rootScope.js',
+    'src/ng/rootElement.js',
     'src/ng/sanitizeUri.js',
     'src/ng/sce.js',
     'src/ng/sniffer.js',
@@ -84,7 +86,7 @@ var angularFiles = {
   ],
 
   'angularLoader': [
-    'stringify.js',
+    'src/stringify.js',
     'src/minErr.js',
     'src/loader.js'
   ],
@@ -92,7 +94,6 @@ var angularFiles = {
   'angularModules': {
     'ngAnimate': [
       'src/ngAnimate/shared.js',
-      'src/ngAnimate/body.js',
       'src/ngAnimate/rafScheduler.js',
       'src/ngAnimate/animateChildrenDirective.js',
       'src/ngAnimate/animateCss.js',
@@ -100,8 +101,8 @@ var angularFiles = {
       'src/ngAnimate/animateJs.js',
       'src/ngAnimate/animateJsDriver.js',
       'src/ngAnimate/animateQueue.js',
-      'src/ngAnimate/animateRunner.js',
       'src/ngAnimate/animation.js',
+      'src/ngAnimate/ngAnimateSwap.js',
       'src/ngAnimate/module.js'
     ],
     'ngCookies': [
@@ -118,6 +119,10 @@ var angularFiles = {
     ],
     'ngMessages': [
       'src/ngMessages/messages.js'
+    ],
+    'ngParseExt': [
+      'src/ngParseExt/ucd.js',
+      'src/ngParseExt/module.js'
     ],
     'ngResource': [
       'src/ngResource/resource.js'
@@ -204,6 +209,7 @@ var angularFiles = {
   "karmaModules": [
     'build/angular.js',
     '@angularSrcModules',
+    'test/modules/no_bootstrap.js',
     'src/ngScenario/browserTrigger.js',
     'test/helpers/*.js',
     'test/ngMessageFormat/*.js',
@@ -218,6 +224,15 @@ var angularFiles = {
 
   'karmaJquery': [
     'bower_components/jquery/dist/jquery.js',
+    'test/jquery_alias.js',
+    '@angularSrc',
+    '@angularSrcModules',
+    '@angularScenario',
+    '@angularTest'
+  ],
+
+  'karmaJqueryOld': [
+    'bower_components/jquery-2.1/dist/jquery.js',
     'test/jquery_alias.js',
     '@angularSrc',
     '@angularSrcModules',
